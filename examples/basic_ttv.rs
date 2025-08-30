@@ -11,6 +11,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let voice_description =
         "Smooth, elegant female, 30s, soft French accent, refined and sophisticated.";
 
+    println!("Designing voice ...");
+
     let designed_voice = client.design_voice(voice_description).execute().await?;
     let designed_voice_id = designed_voice
         .previews
@@ -20,6 +22,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .clone();
 
     println!("Designed Voice Results {:?}", designed_voice);
+
+    println!("Creating voice ...");
 
     let created_voice = client
         .create_voice("Elina", voice_description, &designed_voice_id)

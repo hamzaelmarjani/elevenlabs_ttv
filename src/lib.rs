@@ -19,17 +19,17 @@
 //!     let designed_voice_id = designed_voice.previews.first().unwrap().generated_voice_id.clone();
 //!     
 //!     // results as TTVDesignVoiceResponse struct
-//!     println!("Design Voice Results: {:?}", designed_voice)
+//!     println!("Design Voice Results: {:?}", designed_voice);
 //!
 //!
 //!     
 //!    let created_voice = client
-//!         .create_voice("Jack", "Friendly male, late 20s, neutral American accent, modern and clear like a product demo.", designed_voice_id)
+//!         .create_voice("Jack", "Friendly male, late 20s, neutral American accent, modern and clear like a product demo.", &designed_voice_id)
 //!         .execute()
 //!         .await?;
 //!     
 //!     // results as TTVCreateVoiceResponse struct
-//!     println!("Created Voice Results: {:?}", created_voice)
+//!     println!("Created Voice Results: {:?}", created_voice);
 //!
 //!
 //!     
@@ -74,6 +74,8 @@ impl ElevenLabsTTVClient {
     }
 
     /// Start building a Text-to-Voice: Design Voice request
+    ///
+    /// Requires the description to use for the created voice.
     pub fn design_voice<S: Into<String>>(
         &self,
         voice_description: S,
@@ -101,11 +103,14 @@ impl ElevenLabsTTVClient {
         &self,
         request: TTVDesignVoiceRequest,
     ) -> Result<TTVDesignVoiceResponse, ElevenLabsTTVError> {
-        let mut url = format!("{}/text-to-voice", self.base_url);
+        let mut url = format!("{}/text-to-voice/design", self.base_url);
 
-        if let Some(output_format) = request.output_format.clone() {
-            url = format!("{}/{}", url, output_format);
-        }
+        let output_format = request
+            .output_format
+            .clone()
+            .unwrap_or_else(|| "mp3_44100_128".to_string()); // Default to: mp3_44100_128
+
+        url = format!("{}?output_format={}", url, output_format);
 
         let response = self
             .client
@@ -117,6 +122,7 @@ impl ElevenLabsTTVClient {
             .await?;
 
         if !response.status().is_success() {
+            // println!("Response: {:?}", response);
             return Err(ElevenLabsTTVError::ApiError {
                 status: response.status().as_u16(),
                 message: response.text().await.unwrap_or_default(),
@@ -166,20 +172,20 @@ impl ElevenLabsTTVClient {
 /// Builder for Text-to-Voice: Design Voice requests
 pub struct TextToVoiceDesignVoiceBuilder {
     client: ElevenLabsTTVClient,
-    voice_description: String,
-    output_format: Option<String>,
-    text: Option<String>,
-    model_id: Option<String>,
-    auto_generate_text: Option<bool>,
-    loudness: Option<f32>,
-    seed: Option<u32>,
-    guidance_scale: Option<u32>,
-    stream_previews: Option<bool>,
-    remixing_session_id: Option<String>,
-    remixing_session_iteration_id: Option<String>,
-    quality: Option<f32>,
-    reference_audio_base64: Option<String>,
-    prompt_strength: Option<f32>,
+    pub voice_description: String,
+    pub output_format: Option<String>,
+    pub model_id: Option<String>,
+    pub text: Option<String>,
+    pub auto_generate_text: Option<bool>,
+    pub loudness: Option<f32>,
+    pub seed: Option<u32>,
+    pub guidance_scale: Option<u32>,
+    pub stream_previews: Option<bool>,
+    pub remixing_session_id: Option<String>,
+    pub remixing_session_iteration_id: Option<String>,
+    pub quality: Option<f32>,
+    pub reference_audio_base64: Option<String>,
+    pub prompt_strength: Option<f32>,
 }
 
 impl TextToVoiceDesignVoiceBuilder {
@@ -203,61 +209,75 @@ impl TextToVoiceDesignVoiceBuilder {
         }
     }
 
-    /// Set the output format to use
+    /// Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32.
+    /// MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above.
+    /// Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
+    /// Possible values are: mp3_22050_32 | mp3_44100_32 | mp3_44100_64 | mp3_44100_96 | mp3_44100_128 | mp3_44100_192 | pcm_8000 | pcm_16000 | pcm_22050 | pcm_24000 | pcm_44100 | pcm_48000 | ulaw_8000 | alaw_8000 | opus_48000_32 | opus_48000_64 | opus_48000_96
+    /// Default to: mp3_44100_128
+    /// This goes in the URL path, not in the body.
     pub fn output_format<S: Into<String>>(mut self, output_format: S) -> Self {
         self.output_format = Some(output_format.into());
         self
     }
 
-    /// Set the text to use
+    /// Text to generate, text length has to be between 100 and 1000.
+    /// >=100 characters <=1000 characters
     pub fn text<S: Into<String>>(mut self, text: S) -> Self {
         self.text = Some(text.into());
         self
     }
 
-    /// Set the model to use
+    /// Model to use for the voice generation. Possible values: eleven_multilingual_ttv_v2, eleven_ttv_v3.
+    /// Default to eleven_multilingual_ttv_v2.
     pub fn model<S: Into<String>>(mut self, model_id: S) -> Self {
         self.model_id = Some(model_id.into());
         self
     }
 
-    /// Set the auto generate text option
+    /// Whether to automatically generate a text suitable for the voice description.
     pub fn auto_generate_text<B: Into<bool>>(mut self, auto_generate_text: B) -> Self {
         self.auto_generate_text = Some(auto_generate_text.into());
         self
     }
 
-    /// Set the loudness to use
+    /// Controls the volume level of the generated voice. -1 is quietest, 1 is loudest, 0 corresponds to roughly -24 LUFS.
+    /// >=-1 <=1 Defaults to 0.5
     pub fn loudness(mut self, loudness: f32) -> Self {
         self.loudness = Some(loudness);
         self
     }
 
-    /// Set seeds to use
+    /// If specified, our system will make a best effort to sample deterministically, such that repeated requests with the same seed and parameters should return the same result.
+    /// Determinism is not guaranteed. Must be integer between 0 and 4294967295.
     pub fn seed(mut self, seed: u32) -> Self {
         self.seed = Some(seed);
         self
     }
 
-    /// Set the previous text
+    /// Controls how closely the AI follows the prompt. Lower numbers give the AI more freedom to be creative, while higher numbers force it to stick more to the prompt.
+    /// High numbers can cause voice to sound artificial or robotic. We recommend to use longer, more detailed prompts at lower Guidance Scale.
+    /// >=0 <=100 Defaults to 5
     pub fn guidance_scale(mut self, guidance_scale: u32) -> Self {
         self.guidance_scale = Some(guidance_scale.into());
         self
     }
 
-    /// Set the stream previews option
+    /// Determines whether the Text to Voice previews should be included in the response.
+    /// If true, only the generated IDs will be returned which can then be streamed via the /v1/text-to-voice/:generated_voice_id/stream endpoint.
+    /// Defaults to false
     pub fn stream_previews<B: Into<bool>>(mut self, stream_previews: B) -> Self {
         self.stream_previews = Some(stream_previews.into());
         self
     }
 
-    /// Set the remixing session id option
+    /// The remixing session id.
     pub fn remixing_session_id<S: Into<String>>(mut self, remixing_session_id: S) -> Self {
         self.remixing_session_id = Some(remixing_session_id.into());
         self
     }
 
-    /// Set the remixing session iteration id option
+    /// The id of the remixing session iteration where these generations should be attached to.
+    /// If not provided, a new iteration will be created.
     pub fn remixing_session_iteration_id<S: Into<String>>(
         mut self,
         remixing_session_iteration_id: S,
@@ -266,19 +286,24 @@ impl TextToVoiceDesignVoiceBuilder {
         self
     }
 
-    /// Set the quality to use
+    /// Higher quality results in better voice output but less variety.
+    /// >=-1.0 <=1.0 Default to 0.0
     pub fn quality(mut self, quality: f32) -> Self {
         self.quality = Some(quality.into());
         self
     }
 
-    /// Set the reference audio base64 to use
+    /// Reference audio to use for the voice generation. The audio should be base64 encoded.
+    /// Only supported when using the eleven_ttv_v3 model.
     pub fn reference_audio_base64<S: Into<String>>(mut self, reference_audio_base64: S) -> Self {
         self.reference_audio_base64 = Some(reference_audio_base64.into());
         self
     }
 
-    /// Set the prompt strength to use
+    /// Controls the balance of prompt versus reference audio when generating voice samples.
+    /// 0 means almost no prompt influence, 1 means almost no reference audio influence.
+    /// Only supported when using the eleven_ttv_v3 model and providing reference audio.
+    /// >=0 <=1 Default to 0
     pub fn prompt_strength(mut self, prompt_strength: f32) -> Self {
         self.prompt_strength = Some(prompt_strength.into());
         self
@@ -286,22 +311,22 @@ impl TextToVoiceDesignVoiceBuilder {
 
     /// Execute the Text-to-Voice: Design Voice request
     pub async fn execute(self) -> Result<TTVDesignVoiceResponse, ElevenLabsTTVError> {
-        let output_format = self
-            .output_format
-            .unwrap_or_else(|| "mp3_44100_128".to_string()); // Default to: mp3_44100_128
-
         let request = TTVDesignVoiceRequest {
             voice_description: self.voice_description,
-            output_format: Some(output_format.clone()),
             model_id: Some(self.model_id.unwrap_or_else(|| {
                 models::elevanlabs_models::ELEVEN_MULTILINGUAL_TTV_V2.to_string()
             })), // Default to: eleven_multilingual_ttv_v2
-            text: self.text.or(None),
-            auto_generate_text: self.auto_generate_text.or(None),
-            loudness: self.loudness.or(None),
+            output_format: None,
+            text: self.text.clone().or(None),
+            auto_generate_text: self.auto_generate_text.or(if self.text.is_some() {
+                None
+            } else {
+                Some(true)
+            }),
+            loudness: self.loudness.or(Some(0.5)),
             seed: self.seed.or(None),
-            guidance_scale: self.guidance_scale.or(None),
-            stream_previews: self.stream_previews.or(None),
+            guidance_scale: self.guidance_scale.or(Some(5)),
+            stream_previews: self.stream_previews.or(Some(false)),
             remixing_session_id: self.remixing_session_id.or(None),
             remixing_session_iteration_id: self.remixing_session_iteration_id.or(None),
             quality: self.quality.or(None),
