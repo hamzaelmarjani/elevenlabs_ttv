@@ -11,6 +11,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let voice_description =
         "Bright, energetic female, early 20s, Californian accent, playful and fast-paced.";
 
+    println!("Designing voice ...");
+
     let designed_voice = client
         .design_voice(voice_description)
         .model(models::elevanlabs_models::ELEVEN_MULTILINGUAL_TTV_V2)

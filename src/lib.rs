@@ -84,6 +84,14 @@ impl ElevenLabsTTVClient {
     }
 
     /// Start building a Text-to-Voice: Create Voice request
+    ///
+    /// voice_name: Name to use for the created voice.
+    ///
+    /// voice_description: Description to use for the created voice.
+    ///
+    /// generated_voice_id: (from Design Voice) to create, call POST /v1/text-to-voice/create-previews and fetch the generated_voice_id from the response header if don’t have one yet.
+    ///
+    /// Note: Deleting the created voices not supported for now. You can delete them manually from the platform: https://elevenlabs.io/app/voice-lab
     pub fn create_voice<S: Into<String>>(
         &self,
         voice_name: S,
@@ -235,6 +243,7 @@ impl TextToVoiceDesignVoiceBuilder {
     }
 
     /// Whether to automatically generate a text suitable for the voice description.
+    /// If `text` is provided, this will be ignored.
     pub fn auto_generate_text<B: Into<bool>>(mut self, auto_generate_text: B) -> Self {
         self.auto_generate_text = Some(auto_generate_text.into());
         self
@@ -318,11 +327,11 @@ impl TextToVoiceDesignVoiceBuilder {
             })), // Default to: eleven_multilingual_ttv_v2
             output_format: None,
             text: self.text.clone().or(None),
-            auto_generate_text: self.auto_generate_text.or(if self.text.is_some() {
-                None
+            auto_generate_text: if self.text.is_some() && self.auto_generate_text.is_some() {
+                Some(false)
             } else {
-                Some(true)
-            }),
+                Some(self.text.is_none())
+            },
             loudness: self.loudness.or(Some(0.5)),
             seed: self.seed.or(None),
             guidance_scale: self.guidance_scale.or(Some(5)),
@@ -341,11 +350,11 @@ impl TextToVoiceDesignVoiceBuilder {
 /// Builder for Text-to-Voice: Create Voice requests
 pub struct TextToVoiceCreateVoiceBuilder {
     client: ElevenLabsTTVClient,
-    voice_name: String,
-    voice_description: String,
-    generated_voice_id: String,
-    labels: Option<String>,
-    played_not_selected_voice_ids: Option<String>,
+    pub voice_name: String,
+    pub voice_description: String,
+    pub generated_voice_id: String,
+    pub labels: Option<String>,
+    pub played_not_selected_voice_ids: Option<String>,
 }
 
 impl TextToVoiceCreateVoiceBuilder {
@@ -365,13 +374,13 @@ impl TextToVoiceCreateVoiceBuilder {
         }
     }
 
-    /// Set the labels to use
+    /// Optional, metadata to add to the created voice. Defaults to None.
     pub fn labels<S: Into<String>>(mut self, labels: S) -> Self {
         self.labels = Some(labels.into());
         self
     }
 
-    /// Set the played not selected voice ids
+    /// List of voice ids that the user has played but not selected. Used for RLHF.
     pub fn played_not_selected_voice_ids<S: Into<String>>(
         mut self,
         played_not_selected_voice_ids: S,

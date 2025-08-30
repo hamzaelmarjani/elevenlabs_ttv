@@ -24,19 +24,10 @@ pub struct TTVDesignVoiceRequest {
 /// Request body for Text-to-Voice: Create Voice API calls
 #[derive(Debug, Clone, Serialize)]
 pub struct TTVCreateVoiceRequest {
-    // Name to use for the created voice.
     pub voice_name: String,
-
-    // Description to use for the created voice.
     pub voice_description: String,
-
-    // The generated_voice_id (from Design Voice) to create, call POST /v1/text-to-voice/create-previews and fetch the generated_voice_id from the response header if don’t have one yet.
     pub generated_voice_id: String,
-
-    // Optional, metadata to add to the created voice. Defaults to None.
     pub labels: Option<String>,
-
-    // List of voice ids that the user has played but not selected. Used for RLHF.
     pub played_not_selected_voice_ids: Option<String>,
 }
 
