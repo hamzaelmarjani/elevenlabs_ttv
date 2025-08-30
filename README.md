@@ -23,7 +23,7 @@ A type-safe, async Rust client for the [ElevenLabs Text To Voice API](https://el
 - **[Elevenlabs STT](https://crates.io/crates/elevenlabs_stt)**: ElevenLabs Speech-to-Text API. ✅
 - **[Elevenlabs SFX](https://crates.io/crates/elevenlabs_sfx)**: ElevenLabs Sound Effects API. ✅
 - **[Elevenlabs VC](https://crates.io/crates/elevenlabs_vc)**: ElevenLabs Voice Changer API. ✅
-- **[Elevenlabs VC](https://crates.io/crates/elevenlabs_vc)**: ElevenLabs Text To Voice API. ✅
+- **[Elevenlabs TTV](https://crates.io/crates/elevenlabs_ttv)**: ElevenLabs Text To Voice API. ✅
 - **Elevenlabs CM**: ElevenLabs Music Compose API. ⏳
 - **Elevenlabs AUI**: ElevenLabs Audio Isolation API. ⏳
 - **Elevenlabs DUB**: ElevenLabs Dubbing API. ⏳
